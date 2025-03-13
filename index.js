@@ -1,25 +1,24 @@
+require("dotenv").config(); 
+
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
 const jwt = require("jsonwebtoken");
 const cron = require("node-cron");
 
-// Initialize the app
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 const SECRET_KEY = "my$3cr3tK3yWithSp3ci@lCharacters";
 
-// Middleware
 app.use(
   cors({
-    origin: ["http://localhost:8081", "http://localhost:8080"], // Replace with your actual frontend URLs
-    credentials: true, // Allow cookies and authentication headers if needed
+    origin: ["http://localhost:8081", "http://localhost:8080"],
+    credentials: true,
   })
 );
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Connect to MongoDB
 const connectDB = async () => {
   try {
     await mongoose.connect(
@@ -29,12 +28,11 @@ const connectDB = async () => {
     console.log("MongoDB connected!");
   } catch (err) {
     console.error("MongoDB connection error:", err);
-    setTimeout(connectDB, 5000); // Retry after 5 seconds
+    setTimeout(connectDB, 5000); 
   }
 };
 connectDB();
 
-// Models
 const busServiceSchema = new mongoose.Schema({
   companyName: { type: String, required: true },
   busType: { type: String, required: true },
