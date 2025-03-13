@@ -6,27 +6,33 @@ const cron = require("node-cron");
 
 // Initialize the app
 const app = express();
-const port = 5000;
+const port = 3000;
 const SECRET_KEY = "my$3cr3tK3yWithSp3ci@lCharacters";
+
+// Middleware
+app.use(
+  cors({
+    origin: ["http://localhost:8081", "http://localhost:8080"], // Replace with your actual frontend URLs
+    credentials: true, // Allow cookies and authentication headers if needed
+  })
+);
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Connect to MongoDB
 const connectDB = async () => {
   try {
-    await mongoose.connect("mongodb://localhost:27017/busServiceDB", {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
+    await mongoose.connect(
+      "mongodb+srv://smajeesh3:Ajeesh%402312@cluster0.qupuk.mongodb.net/busServiceDB?retryWrites=true&w=majority&appName=Cluster0",
+      { useNewUrlParser: true, useUnifiedTopology: true }
+    );
     console.log("MongoDB connected!");
   } catch (err) {
     console.error("MongoDB connection error:", err);
-    process.exit(1);
+    setTimeout(connectDB, 5000); // Retry after 5 seconds
   }
 };
 connectDB();
-
-// Middleware
-app.use(cors({ origin: "http://localhost:8080", credentials: true }));
-app.use(express.json());
 
 // Models
 const busServiceSchema = new mongoose.Schema({
@@ -45,98 +51,49 @@ const busServiceSchema = new mongoose.Schema({
 });
 const BusService = mongoose.model("BusService", busServiceSchema);
 
-const emailSchema = new mongoose.Schema({
-  email: { type: String, required: true },
-});
+const emailSchema = new mongoose.Schema({ email: { type: String, required: true } });
 const Email = mongoose.model("Email", emailSchema);
 
-const sanitizeEmail = (email) => email.replace(/[^a-zA-Z0-9]/g, "_");
+const userModels = {}; // Cache models
 const getUserCollection = (email) => {
-  const sanitizedEmail = sanitizeEmail(email);
-  const userSchema = new mongoose.Schema(
-    {
-      data: mongoose.Schema.Types.Mixed,
-    },
-    { strict: false }
-  );
-  return mongoose.model(sanitizedEmail, userSchema, sanitizedEmail);
+  const sanitizedEmail = email.replace(/[^a-zA-Z0-9]/g, "_");
+  if (!userModels[sanitizedEmail]) {
+    const userSchema = new mongoose.Schema({ data: mongoose.Schema.Types.Mixed }, { strict: false });
+    userModels[sanitizedEmail] = mongoose.model(sanitizedEmail, userSchema, sanitizedEmail);
+  }
+  return userModels[sanitizedEmail];
 };
 
-// Controllers
-const getBusServices = async (req, res) => {
+// Routes
+app.get("/busServices", async (req, res) => {
   try {
     const busServices = await BusService.find();
     res.json(busServices);
   } catch (err) {
     res.status(500).json({ message: "Error retrieving data", error: err });
   }
-};
+});
 
-const addBusService = async (req, res) => {
-  const newBusService = new BusService(req.body);
-
-  try {
-    await newBusService.save();
-    res.json({ message: "Bus service data saved successfully!" });
-  } catch (err) {
-    res.status(500).json({ message: "Error saving data", error: err });
-  }
-};
-
-const login = async (req, res) => {
+app.post("/login", async (req, res) => {
+  
   const { email } = req.body;
+  console.log("Login request received:", req.body);
+
   try {
-    const existingEmail = await Email.findOne({ email });
+    let existingEmail = await Email.findOne({ email });
     const token = jwt.sign({ email }, SECRET_KEY, { expiresIn: "1h" });
 
     res.cookie("authToken", token, { httpOnly: false, secure: false });
 
-    if (existingEmail) {
-      return res.json({ message: "Email already exists in the collection." });
-    }
+    res.json({
+      message: existingEmail ? "Login successful." : "Email added successfully!",
+      token,
+    });
 
-    const newEmail = new Email({ email });
-    await newEmail.save();
-
-    getUserCollection(email);
-    res.json({ message: "Email added to the collection successfully!" });
+    if (!existingEmail) await new Email({ email }).save();
   } catch (err) {
     res.status(500).json({ message: "Error processing login", error: err });
   }
-};
-
-const saveTicket = async (req, res) => {
-  const { email, ticketDetails } = req.body;
-
-  try {
-    const UserCollection = getUserCollection(email);
-    const newTicket = new UserCollection({ data: ticketDetails });
-    await newTicket.save();
-
-    res.json({ message: "Ticket details saved successfully!" });
-  } catch (err) {
-    res.status(500).json({ message: "Error saving ticket details", error: err });
-  }
-};
-
-// Routes
-app.get("/busServices", getBusServices);
-app.post("/busServices", addBusService);
-app.post("/users/login", login);
-app.post("/users/saveTicket", saveTicket);
-
-// Cron Job
-// cron.schedule("* * * * *", async () => {
-//   const currentTime = new Date();
-//   try {
-//     const result = await BusService.deleteMany({ departureTime: { $lt: currentTime } });
-//     console.log(`Deleted ${result.deletedCount} outdated bus services`);
-//   } catch (err) {
-//     console.error("Error deleting outdated bus services:", err);
-//   }
-// });
-
-// Start the server
-app.listen(port, () => {
-  console.log(`API is running at http://localhost:${port}`);
 });
+
+app.listen(port, () => console.log(`API running at http://localhost:${port}`));
