@@ -10,7 +10,11 @@ const app = express();
 const port = process.env.PORT || 3000;
 const SECRET_KEY = "my$3cr3tK3yWithSp3ci@lCharacters";
 
-app.use(cors({ origin: "*" })); 
+app.use(cors({
+  origin: ["http://localhost:8081", "https://payanam-opal.vercel.app"], // Add your frontend URL
+  credentials: true
+}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
