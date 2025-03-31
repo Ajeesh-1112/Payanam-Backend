@@ -11,7 +11,7 @@ const port = process.env.PORT || 3000;
 const SECRET_KEY = "my$3cr3tK3yWithSp3ci@lCharacters";
 
 app.use(cors({
-  origin: ["http://localhost:8081","http://localhost:8080", "https://payanam-opal.vercel.app"], // Add your frontend URL
+  origin: ["http://localhost:8081","http://localhost:8080", "https://payanam-opal.vercel.app"], 
   credentials: true
 }));
 
@@ -64,10 +64,73 @@ const getUserCollection = (email) => {
 // Routes
 app.get("/busServices", async (req, res) => {
   try {
-    const busServices = await BusService.find();
+    const { from, to } = req.query; // Get parameters from request
+
+    const query = {};
+    if (from) query.serviceStartPlace = from;
+    if (to) query.serviceEndPlace = to;
+
+    const busServices = await BusService.find(query);
     res.json(busServices);
   } catch (err) {
     res.status(500).json({ message: "Error retrieving data", error: err });
+  }
+});
+
+
+app.post("/busServices", async (req, res) => {
+  try {
+    const {
+      companyName,
+      busType,
+      selectedBus,
+      serviceStartPlace,
+      serviceEndPlace,
+      departureTime,
+      arrivalTime,
+      seaterPrice,
+      sleeperPrice,
+      totalSeat,
+      lowerDeckSeats,
+      upperDeckSeats,
+    } = req.body;
+
+    if (
+      !companyName ||
+      !busType ||
+      !selectedBus ||
+      !serviceStartPlace ||
+      !serviceEndPlace ||
+      !departureTime ||
+      !arrivalTime ||
+      !seaterPrice ||
+      !sleeperPrice ||
+      !totalSeat ||
+      !lowerDeckSeats ||
+      !upperDeckSeats
+    ) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+
+    const newBusService = new BusService({
+      companyName,
+      busType,
+      selectedBus,
+      serviceStartPlace,
+      serviceEndPlace,
+      departureTime,
+      arrivalTime,
+      seaterPrice,
+      sleeperPrice,
+      totalSeat,
+      lowerDeckSeats,
+      upperDeckSeats,
+    });
+
+    await newBusService.save();
+    res.status(201).json({ message: "Bus service added successfully!" });
+  } catch (err) {
+    res.status(500).json({ message: "Error adding bus service", error: err });
   }
 });
 
